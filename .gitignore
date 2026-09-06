@@ -1,0 +1,41 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/
+*.duckdb
+*.duckdb.wal
+.env
+
+# Local configuration and credentials; examples remain versioned.
+.env.*
+!.env.example
+/neqo.yaml
+/neqo.yml
+neqo.local.yaml
+neqo.local.yml
+.aws/
+*.pem
+*.key
+
+# Local agent state, editor files and operating-system metadata.
+.codex/
+.idea/
+.vscode/
+.DS_Store
+
+# Query outputs. Keep rendered SQL in exports/ instead of the macro directory.
+*.csv
+*.parquet
+*.arrow
+exports/
+output/
+
+# Additional build and verification artifacts.
+build/
+.mypy_cache/
+.coverage.*

@@ -1,0 +1,37 @@
+default_engine: playground
+engines:
+  playground:
+    type: duckdb
+    database: ./demo.duckdb
+    max_rows: 100
+macros:
+  path: ./macros
+  errors:
+    file: macros/errors.sql
+    params:
+      date: {type: date, default: '2026-09-05'}
+      status: {type: integer, default: 500}
+      limit: {type: integer, default: 20}
+  slow_requests:
+    file: macros/slow_requests.sql
+    params:
+      date: {type: date, default: '2026-09-05'}
+      threshold: {type: float, default: 4.0}
+      limit: {type: integer, default: 20}
+  investigate_request:
+    file: macros/investigate_request.sql
+    params:
+      request_id: {type: string, default: req-000042}
+  customer_orders:
+    file: macros/customer_orders.sql
+    params:
+      customer_id: {type: integer, default: 43}
+  service_health:
+    file: macros/service_health.sql
+    params:
+      date: {type: date, default: '2026-09-05'}
+  preview_table:
+    file: macros/preview_table.sql
+    params:
+      table: {type: identifier, default: analytics.order_summary}
+      limit: {type: integer, default: 5}

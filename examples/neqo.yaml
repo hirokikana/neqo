@@ -1,0 +1,27 @@
+default_engine: local
+engines:
+  local:
+    type: duckdb
+    database: ./analytics.duckdb
+  athena-prod:
+    type: athena
+    database: analytics
+    catalog: AwsDataCatalog
+    workgroup: primary
+    region: ap-northeast-1
+macros:
+  path: ./macros
+  errors:
+    file: macros/errors.sql
+    params:
+      date: {type: date}
+      status: {type: integer, default: 500}
+  slow_requests:
+    file: macros/slow_requests.sql
+    params:
+      date: {type: date}
+      threshold: {type: float, default: 1.0}
+  investigate_request:
+    file: macros/investigate_request.sql
+    params:
+      request_id: {type: string}
