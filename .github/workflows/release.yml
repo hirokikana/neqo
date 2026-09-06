@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked --all-extras
+      - name: Check release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          uv run python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+          from neqo import __version__
+
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          assert os.environ['RELEASE_TAG'] == f'v{version}', 'Tag and package version differ'
+          assert __version__ == version, 'Public API and package version differ'
+          PY
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.11'
+      - run: uv sync --locked
+      - run: uv build
+      - run: uv run twine check dist/*
+      - name: Smoke test the built wheel
+        run: |
+          uv venv /tmp/neqo-wheel
+          for wheel in dist/*.whl; do
+            uv pip install --python /tmp/neqo-wheel/bin/python "${wheel}[duckdb]"
+          done
+          /tmp/neqo-wheel/bin/neqo query 'SELECT 42 AS answer' --json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/neqo/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - name: Publish to PyPI using Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1

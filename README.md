@@ -16,8 +16,7 @@ queries. It is not a terminal SQL IDE or a dbt replacement.
 
 ## Quick start
 
-These are the intended installation commands once published to PyPI. This
-repository does not imply that the PyPI name has been reserved or published.
+Install from PyPI, then select the engine drivers you need:
 
 ```bash
 pip install neqo
@@ -326,6 +325,7 @@ integration tests use an in-memory database. No live AWS test runs by default.
 
 See [architecture](docs/architecture.md) for extension contracts, workflow
 boundaries and next steps, and [contributing](CONTRIBUTING.md) for contributions.
+Maintainers can follow the [release guide](docs/releasing.md) for PyPI publication.
 
 ## References
 

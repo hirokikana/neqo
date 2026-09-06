@@ -25,6 +25,12 @@ dev = ["pytest>=8,<10", "pytest-cov>=6,<8", "ruff>=0.11,<1", "build>=1.2,<2", "t
 [project.scripts]
 neqo = "neqo.cli.main:main"
 
+[project.urls]
+Homepage = "https://github.com/hirokikana/neqo"
+Repository = "https://github.com/hirokikana/neqo"
+Issues = "https://github.com/hirokikana/neqo/issues"
+Documentation = "https://github.com/hirokikana/neqo#readme"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/neqo"]
 core-metadata-version = "2.4"
