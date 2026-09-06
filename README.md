@@ -16,56 +16,59 @@ queries. It is not a terminal SQL IDE or a dbt replacement.
 
 ## Quick start
 
-Install from PyPI, then select the engine drivers you need:
+Install DuckDB support for a local query session:
 
 ```bash
-pip install neqo
-pip install 'neqo[duckdb]'  # choose an engine, or install neqo[all]
-# Alternative:
+pip install 'neqo[duckdb]'
+neqo --engine duckdb query 'SELECT 42 AS answer'
+neqo --no-history duckdb ./analytics.duckdb
+```
+
+For both engines, use `pip install 'neqo[all]'`, or install the CLI with uv:
+
+```bash
 uv tool install 'neqo[all]'
 ```
 
-From a checkout:
+`pip install neqo` installs the library and CLI but no engine drivers. Choose
+`neqo[duckdb]`, `neqo[athena]`, or `neqo[all]` for query execution. With no
+`neqo.yaml` in the current directory, the default engine is in-memory DuckDB.
+
+To develop NEQO or try its sample data, clone the repository:
 
 ```bash
-uv sync
+git clone https://github.com/hirokikana/neqo.git
+cd neqo
+uv sync --locked
 uv run neqo --help
 uv run neqo query 'SELECT 42 AS answer'
-uv run neqo duckdb ./analytics.duckdb
 ```
 
 Or `pip install -e '.[all]'` in a virtual environment. Engine drivers are optional;
 install `neqo[athena]` for an Athena-only deployment.
 
-For a runnable macro example from the repository root:
+### Try macros and completion locally
+
+From the repository root, generate synthetic data and run a macro:
 
 ```bash
-neqo --config examples/neqo.yaml query "CREATE OR REPLACE TABLE access_logs AS SELECT DATE '2026-09-05' AS dt, 503 AS status, 'abc123' AS request_id, 2.5 AS request_time"
-neqo --config examples/neqo.yaml run errors --date 2026-09-05
-neqo --config examples/neqo.yaml run investigate-request --request-id abc123 --json
+uv run python examples/playground/build_demo.py
+uv run neqo --config examples/playground/neqo.yaml run errors --limit 5
+uv run neqo --config examples/playground/neqo.yaml render errors --date 2026-09-05
+uv run neqo --config examples/playground/neqo.yaml --no-history duckdb
 ```
 
-Run Athena using the standard AWS credential chain:
-
-```bash
-pip install 'neqo[athena]'
-AWS_PROFILE=prod neqo --database analytics athena
-AWS_PROFILE=prod neqo --profile athena-prod query 'SELECT 1'
-```
-
-The commands below read `neqo.yaml` in the current directory, as do all
-Runner constructors by default:
-
-```bash
-AWS_PROFILE=prod neqo athena
-neqo run errors --date 2026-09-05 --status 500
-```
-
-Athena requires an AWS region and an output location configured either in its
-workgroup or in NEQO. Profile names for NEQO connections are distinct from AWS
-credential profiles.
+In the REPL, enter `SELECT * FROM access_` and press Tab. Use `:quit` to close
+the database before running another CLI process against it. The playground has
+6,000 access logs, five schemas, views and six macros; its generated database is
+not included in Git or the installed wheel. See the
+[playground guide](https://github.com/hirokikana/neqo/blob/main/examples/playground/README.md).
 
 ## Configuration
+
+CLI commands and Runner read `neqo.yaml` from the current working directory by
+default. The following is a template for your own connection settings; the
+`errors` macro also requires the SQL file shown in the next section.
 
 ```yaml
 default_engine: local
@@ -100,6 +103,38 @@ options. Relative macro paths and configured DuckDB database paths resolve from
 the YAML file's directory. An explicit `database=` resolves from the process
 working directory. Use `--config PATH` / `Runner(config=PATH)` for deterministic
 configuration discovery. No parent-directory search takes place.
+
+### Athena authentication
+
+NEQO connection profiles and AWS credential profiles are separate:
+
+| Setting | Purpose | Example |
+| --- | --- | --- |
+| `--profile` | Select an entry under `engines` in `neqo.yaml` | `athena-prod` |
+| `aws_profile` in that entry, or `AWS_PROFILE` | Select the boto3/AWS authentication profile | `company-prod` |
+
+For an AWS profile previously configured with `aws configure sso`:
+
+```bash
+pip install 'neqo[athena]'
+aws sso login --profile company-prod
+AWS_PROFILE=company-prod neqo --profile athena-prod query 'SELECT 1'
+AWS_PROFILE=company-prod neqo --profile athena-prod --no-history athena
+```
+
+Alternatively, add `aws_profile: company-prod` to the `athena-prod` connection
+above. After SSO login, `neqo --profile athena-prod ...` then uses that profile
+without an `AWS_PROFILE` prefix. An explicit `aws_profile` takes precedence over
+the environment selection. Do not put access keys or session tokens in the YAML.
+
+Athena needs a region, query/catalog permissions, and access to the S3 query-result
+location. Configure `output_location` in NEQO or configure it in the workgroup;
+enforced workgroup settings take precedence. This S3 location is separate from
+the local file written by `--csv`. For Lambda, EC2 and ECS, omit `aws_profile` to
+use the execution/instance/task role through boto3's credential provider chain.
+
+Keep personal connection settings in the repository-root `neqo.yaml` (ignored by
+Git), or use `--config neqo.local.yaml`. Files under `examples/` are public samples.
 
 ## SQL macros
 
@@ -193,6 +228,8 @@ results marked as truncated. Use `runner.export_csv` for full query results.
 
 ## Python API
 
+With an existing `access_logs` table and the `errors` macro configured as above:
+
 ```python
 from neqo import Runner
 
@@ -267,6 +304,10 @@ Terminate SQL with `;`. When the completion menu is open, Enter accepts the sele
 candidate (or the first candidate if none is selected) without submitting the input.
 Otherwise, Enter continues incomplete input; Ctrl-C clears input and
 Ctrl-D exits. Tab offers keywords, tables/views, columns, functions and macros.
+To complete a SELECT column, write the FROM clause first and move the cursor back,
+for example `SELECT l. FROM access_logs l` with the cursor after `l.`. Without a
+FROM clause, v0.1 does not search all tables for column names. NEQO macro candidates
+are suggestions only: run them with `neqo run` in the shell, not `FROM macro(...)`.
 
 | Command | Action |
 | --- | --- |
@@ -323,9 +364,12 @@ CI runs lint, tests and packaging on Python 3.11, 3.12 and 3.13. Unit tests use
 mock Athena clients / botocore Stubber and never need AWS credentials. DuckDB
 integration tests use an in-memory database. No live AWS test runs by default.
 
-See [architecture](docs/architecture.md) for extension contracts, workflow
-boundaries and next steps, and [contributing](CONTRIBUTING.md) for contributions.
-Maintainers can follow the [release guide](docs/releasing.md) for PyPI publication.
+See [architecture](https://github.com/hirokikana/neqo/blob/main/docs/architecture.md)
+for extension contracts, workflow boundaries and next steps, and
+[contributing](https://github.com/hirokikana/neqo/blob/main/CONTRIBUTING.md) for contributions.
+Maintainers can follow the
+[release guide](https://github.com/hirokikana/neqo/blob/main/docs/releasing.md)
+for PyPI publication through `release.yml` and the `pypi` GitHub environment.
 
 ## References
 

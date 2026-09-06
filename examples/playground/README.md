@@ -8,6 +8,7 @@ AWS 接続は不要です。実際の個人情報・認証情報は含みませ�
 プロジェクトルートから実行します。
 
 ```bash
+uv sync --locked
 source .venv/bin/activate
 python examples/playground/build_demo.py
 cd examples/playground
@@ -15,8 +16,8 @@ neqo --no-history duckdb
 ```
 
 `demo.duckdb` がすでにあれば生成コマンドは上書きせず終了します。
-今回の作業環境では生成済みなので、`cd examples/playground` から始められます。
-新しい checkout では `uv sync` 後に上記の生成コマンドを実行してください。
+生成された DB は Git やインストール済みパッケージには含まれません。
+新しい checkout では上記の生成コマンドを実行してください。
 
 DB はファイルに永続化されます。REPL 内で加えた変更も残ります。
 再生成するときは REPL を終了し、既存 DB を別名へ移してから生成してください。
@@ -43,6 +44,8 @@ DB はファイルに永続化されます。REPL 内で加えた変更も残り
 
 以下の `<Tab>` は文字として入力せず、Tab キーを押してください。
 SQL を実行するときは末尾に `;` を付けます。
+補完候補を表示している間の Enter は候補の確定です。候補が閉じた状態で
+Enter を押すと、SQL を実行するか、未完成の SQL を次の行へ続けます。
 
 ```text
 SELECT * FROM access_<Tab>
