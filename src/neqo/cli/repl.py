@@ -4,9 +4,10 @@ import os
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application.current import get_app
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.completion import Completion as PromptCompletion
-from prompt_toolkit.filters import has_completions
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
@@ -34,13 +35,16 @@ class SQLCompleter(Completer):
 def _key_bindings() -> KeyBindings:
     bindings = KeyBindings()
 
-    @bindings.add("enter", filter=has_completions)
+    @Condition
+    def completion_selected() -> bool:
+        state = get_app().current_buffer.complete_state
+        return state is not None and state.complete_index is not None
+
+    @bindings.add("enter", filter=completion_selected)
     def accept_completion(event: KeyPressEvent) -> None:
         buffer = event.current_buffer
         state = buffer.complete_state
         if state is not None:
-            if state.complete_index is None:
-                buffer.go_to_completion(0)
             # Navigation already inserts the candidate; keep it and close the menu.
             buffer.complete_state = None
 
@@ -60,6 +64,7 @@ def repl(runner: Runner, *, history: bool = True) -> None:
     session: PromptSession = PromptSession(
         history=file_history,
         completer=SQLCompleter(completion),
+        complete_while_typing=True,
         key_bindings=_key_bindings(),
     )
     console.print("NEQO", style="bold")

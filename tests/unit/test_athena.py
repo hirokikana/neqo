@@ -42,7 +42,8 @@ def page(rows, token=None):
     return result
 
 
-def test_real_sdk_contract(tmp_path):
+@pytest.mark.parametrize("update_count", [None, 0])
+def test_real_sdk_contract(tmp_path, update_count):
     client = boto3.client(
         "athena",
         region_name="us-east-1",
@@ -61,9 +62,12 @@ def test_real_sdk_contract(tmp_path):
             },
         )
         stub.add_response("get_query_execution", execution(), {"QueryExecutionId": "q"})
+        first_page = page([["name", "n"], ["x", "1"]], "next")
+        if update_count is not None:
+            first_page["UpdateCount"] = update_count
         stub.add_response(
             "get_query_results",
-            page([["name", "n"], ["x", "1"]], "next"),
+            first_page,
             {"QueryExecutionId": "q", "MaxResults": 1000},
         )
         stub.add_response(

@@ -155,8 +155,8 @@ class AthenaEngine(Engine):
             info = result_set.get("ResultSetMetadata", {}).get("ColumnInfo", [])
             names = [c.get("Label", c["Name"]) for c in info]
             rows = result_set.get("Rows", [])
-            # SELECT results have one header on the first page; DML counts do not.
-            if first and rows and "UpdateCount" not in response:
+            # SELECT can include UpdateCount=0; identify its first-page header by names.
+            if first and rows:
                 header = [c.get("VarCharValue") for c in rows[0].get("Data", [])]
                 if header in (names, [c["Name"] for c in info]):
                     rows = rows[1:]

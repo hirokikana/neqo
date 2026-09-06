@@ -300,10 +300,12 @@ materialized result; use `execute_iter` for a new query's full streamed result.
 
 ## REPL and completion
 
-Terminate SQL with `;`. When the completion menu is open, Enter accepts the selected
-candidate (or the first candidate if none is selected) without submitting the input.
+Terminate SQL with `;`. Suggestions appear automatically while typing. Select a
+candidate with Tab or arrow keys; Enter accepts it without submitting the input.
 Otherwise, Enter continues incomplete input; Ctrl-C clears input and
 Ctrl-D exits. Tab offers keywords, tables/views, columns, functions and macros.
+When no candidate is selected, Enter submits the current input unchanged, even
+if suggestions are visible.
 To complete a SELECT column, write the FROM clause first and move the cursor back,
 for example `SELECT l. FROM access_logs l` with the cursor after `l.`. Without a
 FROM clause, v0.1 does not search all tables for column names. NEQO macro candidates
