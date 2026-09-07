@@ -75,23 +75,32 @@ def query(
     csv_output: Annotated[
         str | None, typer.Option("--csv", help="Export all rows to FILE; - for stdout.")
     ] = None,
+    no_header: Annotated[bool, typer.Option("--no-header", help="Omit the CSV header.")] = False,
 ):
     """Execute raw SQL."""
-    _validate_output(json_output, csv_output)
+    _validate_output(json_output, csv_output, no_header)
     with _runner(ctx) as runner:
-        _execute(runner, sql, json_output, csv_output)
+        _execute(runner, sql, json_output, csv_output, no_header)
 
 
-def _validate_output(json_output: bool, csv_output: str | None) -> None:
+def _validate_output(json_output: bool, csv_output: str | None, no_header: bool) -> None:
     if json_output and csv_output is not None:
         raise typer.BadParameter("--json and --csv are mutually exclusive")
+    if no_header and csv_output is None:
+        raise typer.BadParameter("--no-header requires --csv")
 
 
-def _execute(runner: Runner, sql: str, json_output: bool, csv_output: str | None) -> None:
+def _execute(
+    runner: Runner, sql: str, json_output: bool, csv_output: str | None, no_header: bool
+) -> None:
     if csv_output is None:
         print_result(runner.execute(sql), json_output=json_output)
     else:
-        count = runner.export_csv(sql, sys.stdout if csv_output == "-" else Path(csv_output))
+        count = runner.export_csv(
+            sql,
+            sys.stdout if csv_output == "-" else Path(csv_output),
+            include_header=not no_header,
+        )
         if csv_output != "-":
             typer.echo(f"Exported {count} rows to {csv_output}", err=True)
 
@@ -104,12 +113,13 @@ def run(
     csv_output: Annotated[
         str | None, typer.Option("--csv", help="Export all rows to FILE; - for stdout.")
     ] = None,
+    no_header: Annotated[bool, typer.Option("--no-header", help="Omit the CSV header.")] = False,
 ):
     """Run a macro with --parameter value or --parameter=value arguments."""
-    _validate_output(json_output, csv_output)
+    _validate_output(json_output, csv_output, no_header)
     parameters = _parameters(ctx.args)
     with _runner(ctx) as runner:
-        _execute(runner, runner.render(macro, **parameters), json_output, csv_output)
+        _execute(runner, runner.render(macro, **parameters), json_output, csv_output, no_header)
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})

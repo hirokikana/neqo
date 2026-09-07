@@ -45,21 +45,34 @@ def _cell(value: Any) -> Any:
     return value
 
 
-def write_csv(pages: Iterable[QueryResult], destination: str | Path | TextIO) -> int:
-    """Write UTF-8 CSV with one header. NULL is an empty field. Return the row count."""
+def write_csv(
+    pages: Iterable[QueryResult], destination: str | Path | TextIO, *, include_header: bool = True
+) -> int:
+    """Write LF-delimited CSV with an optional header; return the data row count.
+
+    NULL is an empty field. Caller-owned text streams should use newline="".
+    """
     count = 0
     columns = None
     with output_stream(destination) as stream:
-        writer = csv.writer(stream)
+        writer = csv.writer(stream, lineterminator="\n")
+        cr_writer = csv.writer(stream, lineterminator="\n", quoting=csv.QUOTE_ALL)
+
+        def write_row(values: list[Any]) -> None:
+            # With an LF terminator, csv.writer no longer automatically quotes bare CR.
+            selected = cr_writer if any("\r" in str(value) for value in values) else writer
+            selected.writerow(values)
+
         for page in pages:
             if page.metadata.get("truncated"):
                 raise QueryError("Cannot export a truncated result; use a streaming engine API")
             if columns is None:
                 columns = page.columns
-                writer.writerow(columns)
+                if include_header:
+                    write_row(columns)
             elif page.columns != columns:
                 raise QueryError("Result columns changed during CSV export")
             for row in page.rows:
-                writer.writerow([_cell(value) for value in row])
+                write_row([_cell(value) for value in row])
                 count += 1
     return count

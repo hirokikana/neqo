@@ -52,8 +52,10 @@ class Runner:
     def execute_iter(self, sql: str) -> Iterator[QueryResult]:
         return self.engine.execute_iter(sql)
 
-    def export_csv(self, sql: str, destination: str | Path | TextIO) -> int:
-        return write_csv(self.execute_iter(sql), destination)
+    def export_csv(
+        self, sql: str, destination: str | Path | TextIO, *, include_header: bool = True
+    ) -> int:
+        return write_csv(self.execute_iter(sql), destination, include_header=include_header)
 
     def run(self, macro: str, **parameters: Any) -> QueryResult:
         return self.execute(self.render(macro, **parameters))

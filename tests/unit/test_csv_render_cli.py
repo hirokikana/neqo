@@ -41,6 +41,29 @@ def test_csv_macro_stdout(project):
     assert result.stderr == ""
 
 
+@pytest.mark.parametrize("destination", ["-", "out.csv"])
+@pytest.mark.parametrize("include_header", [True, False])
+@pytest.mark.parametrize(
+    "command", [["query", "SELECT 42 AS name"], ["run", "lookup", "--name", "42"]]
+)
+def test_csv_header_and_lf(project, destination, include_header, command):
+    args = [*command, "--csv", destination]
+    if not include_header:
+        args.append("--no-header")
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    data = result.stdout_bytes if destination == "-" else (project / destination).read_bytes()
+    assert data == (b"name\n" if include_header else b"") + b"42\n"
+
+
+@pytest.mark.parametrize("command", [["query", "SELECT 1"], ["run", "lookup", "--name", "42"]])
+def test_no_header_requires_csv(project, command):
+    result = CliRunner().invoke(app, [*command, "--no-header"])
+    assert result.exit_code == 2
+    assert "--no-header requires --csv" in result.output
+    assert not (project / "demo.duckdb").exists()
+
+
 def test_incompatible_flags_do_not_execute(project):
     result = CliRunner().invoke(app, ["query", "SELECT 1", "--csv", "out.csv", "--json"])
     assert result.exit_code == 2

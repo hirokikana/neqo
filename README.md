@@ -155,7 +155,8 @@ validated and rendered as dialect-specific SQL literals. Identifiers accept
 dot-separated ASCII names and quote each component. They cannot contain SQL
 fragments. Required and unknown parameters raise errors. Use `--name=value` for
 CLI values that begin with `--`; booleans require explicit `true` or `false`.
-`--json` and `--csv` are reserved for execution output; `render` reserves `--output` / `-o`.
+`--json`, `--csv` and `--no-header` are reserved for execution output;
+`render` reserves `--output` / `-o`.
 
 Templates support only `{{ parameter }}` substitution. Jinja control flow,
 filters, function calls and attribute access are rejected. Do not surround a
@@ -196,6 +197,7 @@ The selected profile determines the SQL dialect. Python uses
 AWS_PROFILE=prod neqo --profile athena-prod query 'SELECT * FROM access_logs' --csv logs.csv
 AWS_PROFILE=prod neqo --profile athena-prod run errors --date 2026-09-05 --csv errors.csv
 neqo query 'SELECT 42 AS answer' --csv -
+neqo query 'SELECT 42 AS answer' --csv - --no-header
 ```
 
 `--csv FILE` exports all result rows, including those beyond `max_rows`. Athena
@@ -206,6 +208,11 @@ strings both produce empty fields. Dates use ISO strings, decimals keep precisio
 bytes use base64, and DuckDB nested values use JSON cells.
 
 Use `--csv -` for pure CSV on stdout. `--json` and `--csv` cannot be combined.
+CSV records use LF (`\n`) line endings. Headers are included by default; add
+`--no-header` to `query` or `run` to omit them (requires `--csv`). Newlines inside
+cell values are preserved. Python callers can pass `include_header=False` to
+`runner.export_csv`, `result.to_csv`, or `write_csv`. Open caller-owned text streams
+with `newline=""` to avoid platform-specific newline translation.
 File paths are relative to the current working directory; the parent directory
 must exist. Existing files are replaced only after the export succeeds. On failure,
 the temporary file is removed and any previous output is retained. Stdout and

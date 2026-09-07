@@ -54,7 +54,7 @@ class QueryResult:
     def to_json(self, **kwargs: Any) -> str:
         return json.dumps(self.to_dict(), **kwargs)
 
-    def to_csv(self, destination: str | Path | TextIO) -> int:
+    def to_csv(self, destination: str | Path | TextIO, *, include_header: bool = True) -> int:
         from neqo.export import write_csv
 
-        return write_csv([self], destination)
+        return write_csv([self], destination, include_header=include_header)

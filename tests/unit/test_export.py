@@ -32,7 +32,31 @@ def test_csv_values_and_single_header():
 def test_empty_result_has_header(tmp_path):
     path = tmp_path / "empty.csv"
     assert QueryResult(["id", "name"], []).to_csv(path) == 0
-    assert path.read_text() == "id,name\n"
+    assert path.read_bytes() == b"id,name\n"
+
+
+@pytest.mark.parametrize("include_header", [True, False])
+def test_csv_header_option_and_lf_bytes(tmp_path, include_header):
+    path = tmp_path / "rows.csv"
+    pages = [QueryResult(["id"], []), QueryResult(["id"], [(1,)]), QueryResult(["id"], [(2,)])]
+    assert write_csv(pages, path, include_header=include_header) == 2
+    assert path.read_bytes() == (b"id\n" if include_header else b"") + b"1\n2\n"
+
+
+def test_materialized_csv_without_header(tmp_path):
+    path = tmp_path / "rows.csv"
+    assert QueryResult(["id"], [(1,)]).to_csv(path, include_header=False) == 1
+    assert path.read_bytes() == b"1\n"
+    assert QueryResult(["id"], []).to_csv(path, include_header=False) == 0
+    assert path.read_bytes() == b""
+
+
+@pytest.mark.parametrize("value", ["a\r\nb", "a\rb", "a\nb"])
+def test_cell_newlines_preserved(value):
+    output = io.StringIO(newline="")
+    write_csv([QueryResult(["text"], [(value,)])], output, include_header=False)
+    assert output.getvalue() == f'"{value}"\n'
+    assert list(csv.reader(io.StringIO(output.getvalue(), newline=""))) == [[value]]
 
 
 @pytest.mark.parametrize("existing", [True, False])
