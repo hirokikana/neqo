@@ -305,6 +305,81 @@ DuckDB submit is synchronous; handles live in that engine instance and the most
 recent 32 results are retained. DuckDB page iteration currently yields its bounded
 materialized result; use `execute_iter` for a new query's full streamed result.
 
+## Terminal graphs
+
+Install optional graph support with `pip install 'neqo[graphs]'` (also included in
+`neqo[all]`). For this checkout, use `uv sync --all-extras`.
+NEQO uses [termgraph](https://github.com/mkaz/termgraph) through its Python API.
+
+For automatic plotting, just add `--graph` to `query` or `run`:
+
+```bash
+uv run neqo --config examples/graphs.yaml run daily_status --graph
+uv run neqo query "SELECT 'Tokyo' AS city, 12 AS users" --graph
+```
+
+This is equivalent to `--graph auto`. In the REPL, `:graph` alone plots the last
+result. Python callers can use `draw_graph(result, GraphSpec())`.
+Auto mode uses the sole nonnumeric column as labels and all numeric columns as
+series. With only numeric columns, the first column is the label and the remaining
+columns are series. Multiple possible label columns require `--x`; `--y` can also
+override inference. Numeric strings are not coerced, and NULL numeric values still
+require SQL handling. Empty results display a message. Auto mode uses grouped bars,
+not stacking, since unrelated numeric columns need not be additive. It never sorts,
+aggregates, silently drops excess series, or reruns SQL. Colors are automatic.
+`--graph` cannot be combined with `--csv` or `--json`. Use `--graph bar` or
+`--graph stacked` with explicit columns to choose a graph type.
+
+```bash
+uv run neqo --config examples/graphs.yaml run daily_status \
+  --graph stacked --x day --y success --y client_error --y server_error \
+  --colors green,yellow,red
+uv run neqo --config examples/graphs.yaml run daily_status \
+  --graph bar --x day --y success --width 30
+```
+
+`query` supports the same options. Repeat `--y` for multiple numeric columns;
+`--colors` accepts one comma-separated color per series: green, yellow, red, cyan,
+magenta, blue. Colors default to this palette. A legend uses the selected column
+names; input row order is preserved. The width specifies the maximum bar length,
+excluding labels and values. Japanese labels are padded by terminal display width;
+labels longer than 24 cells are abbreviated. Displayed values use six significant
+digits and graph scaling uses floating point; original query results are unchanged.
+
+Color is enabled on terminals unless `NO_COLOR` is set or `--no-color` is passed.
+Redirected output is monochrome. Monochrome stacked graphs are explicitly shown as
+grouped bars so series remain distinguishable in legend order. Graph output cannot
+be combined with `--csv` or `--json`. Graph options (`--graph`, `--x`, `--y`,
+`--colors`, `--width`, `--no-color`) are reserved options on `run`.
+
+In the REPL, execute a query and then draw its cached result without another query:
+
+```text
+SELECT * FROM (VALUES ('Tokyo', 12, 2), ('Osaka', 8, 3)) t(city, ok, errors);
+:graph stacked --x city --y ok --y errors --colors green,red
+:graph bar --x city --y ok
+:graph --help
+```
+
+An unsuccessful new query clears the cached result. Graphs reject truncated results,
+more than 100 rows or 6 series, ambiguous column names, negative values, NULL numeric
+values and non-finite numbers. Aggregate, sort and handle NULLs explicitly in SQL
+(for example `COALESCE`). Empty results display a message. No SQL is automatically
+rewritten or rerun for plotting.
+
+```python
+from neqo.graphs import GraphSpec, draw_graph
+
+# result is an existing QueryResult from any NEQO engine.
+draw_graph(result, GraphSpec("stacked", x="city", y=("ok", "errors")))
+```
+
+`draw_graph` accepts `stream=` and `color=True/False` as well. It lazily imports
+termgraph. Because termgraph uses process stdout, NEQO captures rendering under a
+lock; applications must avoid unrelated concurrent stdout writes during drawing.
+Use `GraphData.from_result(result, spec)` for data preparation without terminal
+rendering or importing termgraph.
+
 ## REPL and completion
 
 Terminate SQL with `;`. Suggestions appear automatically while typing. Select a

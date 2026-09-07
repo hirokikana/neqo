@@ -13,9 +13,11 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from rich.console import Console
 
+from neqo.cli.graphs import graph_help, parse_graph_command
 from neqo.cli.output import print_result
 from neqo.completion import CompletionEngine
 from neqo.errors import NeqoError, QueryError
+from neqo.graphs import GraphError, draw_graph
 from neqo.runner import Runner
 
 
@@ -73,6 +75,7 @@ def repl(runner: Runner, *, history: bool = True) -> None:
     if hasattr(runner.engine, "workgroup"):
         console.print(f"Workgroup: {runner.engine.workgroup}", markup=False)
     pending = ""
+    last_result = None
     while True:
         try:
             line = session.prompt("...> " if pending else "neqo> ", default=pending)
@@ -82,7 +85,16 @@ def repl(runner: Runner, *, history: bool = True) -> None:
                 command, _, argument = line.strip().partition(" ")
                 if command in {":quit", ":exit"}:
                     break
-                if command == ":tables":
+                if command == ":graph":
+                    if argument.strip() in {"--help", "-h"}:
+                        console.print(graph_help(), markup=False, highlight=False)
+                        pending = ""
+                        continue
+                    spec, no_color = parse_graph_command(argument)
+                    if last_result is None:
+                        raise GraphError("Execute a query before :graph")
+                    draw_graph(last_result, spec, color=False if no_color else None)
+                elif command == ":tables":
                     for table in runner.engine.tables():
                         console.print(f"{table.schema}.{table.name} ({table.kind})", markup=False)
                 elif command == ":schema":
@@ -104,7 +116,9 @@ def repl(runner: Runner, *, history: bool = True) -> None:
                 pending = line + "\n"
                 continue
             pending = ""
-            print_result(runner.execute(line))
+            last_result = None
+            last_result = runner.execute(line)
+            print_result(last_result)
         except KeyboardInterrupt:
             pending = ""
         except EOFError:

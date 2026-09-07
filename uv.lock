@@ -714,7 +714,7 @@ wheels = [
 
 [[package]]
 name = "neqo"
-version = "0.1.2"
+version = "0.1.3"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
@@ -729,12 +729,18 @@ dependencies = [
 all = [
     { name = "boto3" },
     { name = "duckdb" },
+    { name = "termgraph" },
+    { name = "wcwidth" },
 ]
 athena = [
     { name = "boto3" },
 ]
 duckdb = [
     { name = "duckdb" },
+]
+graphs = [
+    { name = "termgraph" },
+    { name = "wcwidth" },
 ]
 
 [package.dev-dependencies]
@@ -745,6 +751,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "termgraph" },
     { name = "twine" },
 ]
 
@@ -753,14 +760,16 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'athena'", specifier = ">=1.35,<2" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1.2,<2" },
     { name = "jinja2", specifier = ">=3.1.6,<4" },
-    { name = "neqo", extras = ["duckdb", "athena"], marker = "extra == 'all'" },
+    { name = "neqo", extras = ["duckdb", "athena", "graphs"], marker = "extra == 'all'" },
     { name = "prompt-toolkit", specifier = ">=3.0.48,<4" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "rich", specifier = ">=13.9,<15" },
     { name = "sqlglot", specifier = ">=26,<31" },
+    { name = "termgraph", marker = "extra == 'graphs'", specifier = ">=0.7.6,<0.8" },
     { name = "typer", specifier = ">=0.15,<1" },
+    { name = "wcwidth", marker = "extra == 'graphs'", specifier = ">=0.2,<1" },
 ]
-provides-extras = ["duckdb", "athena", "all"]
+provides-extras = ["duckdb", "athena", "graphs", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -770,6 +779,7 @@ dev = [
     { name = "pytest", specifier = ">=8,<10" },
     { name = "pytest-cov", specifier = ">=6,<8" },
     { name = "ruff", specifier = ">=0.11,<1" },
+    { name = "termgraph", specifier = ">=0.7.6,<0.8" },
     { name = "twine", specifier = ">=6,<7" },
 ]
 
@@ -1108,6 +1118,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e4/73/5b5ce3e23b3ded3ea1986c2c2991217460d5fd5161b3e00a8425f5dcb8a3/sqlglot-30.18.0.tar.gz", hash = "sha256:e57e1b205e341979d1df5b1212c1435c598a0437e4619e3f428b15d5bc3a5cc6", size = 6018496, upload-time = "2026-09-03T13:12:58.206Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/08/9f/3dd2ec8dd84a33e0092f1c815267bc055073f9e833b93e389c59c10f62cc/sqlglot-30.18.0-py3-none-any.whl", hash = "sha256:ee0f9a9f3e2193e763c326e52dfb377b96fdb4292f6305c3ff2d9a220e71c601", size = 748788, upload-time = "2026-09-03T13:12:56.467Z" },
+]
+
+[[package]]
+name = "termgraph"
+version = "0.7.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/38/d6/43a42797431d299a4b09b3b9fcdbcdea9a762231f6037c5660a9125e33f0/termgraph-0.7.6.tar.gz", hash = "sha256:0a86f6033cec461785ca4ffae19b394c788820fa9beab17f9d2eb83068e1fe60", size = 463933, upload-time = "2026-03-25T05:19:25.831Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/02/7d15699fc4d431443e6f1217c22a130b129a866a5f88164fedfab7fe39f2/termgraph-0.7.6-py3-none-any.whl", hash = "sha256:c9dc8b10189462b511ba076c484cf6e3c389e7c2d40f170f09489dd101148398", size = 18627, upload-time = "2026-03-25T05:19:24.682Z" },
 ]
 
 [[package]]

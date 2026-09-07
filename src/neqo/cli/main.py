@@ -7,13 +7,44 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from typer.core import TyperCommand
 
+from neqo.cli.graphs import graph_options
 from neqo.cli.output import print_result
 from neqo.errors import NeqoError, QueryError
 from neqo.export import output_stream
+from neqo.graphs import GraphError, GraphSpec, draw_graph
 from neqo.runner import Runner
 
 app = typer.Typer(no_args_is_help=False, help="NEQO - Nimble Engine Query Orchestrator")
+
+
+class QueryCommand(TyperCommand):
+    """Support an omitted --graph value without changing Typer's option parser."""
+
+    def parse_args(self, ctx, args):
+        options = {opt: p for p in self.params for opt in getattr(p, "opts", [])}
+        normalized = []
+        index = 0
+        while index < len(args):
+            token = args[index]
+            normalized.append(token)
+            index += 1
+            if token == "--":
+                normalized.extend(args[index:])
+                break
+            if token == "--graph":
+                if index < len(args) and args[index] in {"auto", "bar", "stacked"}:
+                    normalized.append(args[index])
+                    index += 1
+                else:
+                    normalized.append("auto")
+            elif token.startswith("-") and "=" not in token:
+                option = options.get(token)
+                if (option is None or not getattr(option, "is_flag", False)) and index < len(args):
+                    normalized.append(args[index])
+                    index += 1
+        return super().parse_args(ctx, normalized)
 
 
 @contextmanager
@@ -67,7 +98,7 @@ def _interactive(ctx: typer.Context, **options):
         repl(runner, history=ctx.meta.get("history", True))
 
 
-@app.command()
+@app.command(cls=QueryCommand)
 def query(
     ctx: typer.Context,
     sql: str,
@@ -76,11 +107,36 @@ def query(
         str | None, typer.Option("--csv", help="Export all rows to FILE; - for stdout.")
     ] = None,
     no_header: Annotated[bool, typer.Option("--no-header", help="Omit the CSV header.")] = False,
+    graph: Annotated[
+        str | None,
+        typer.Option(
+            "--graph", metavar="[auto|bar|stacked]", help="Draw a graph; omitted value means auto."
+        ),
+    ] = None,
+    x: Annotated[str | None, typer.Option("--x", help="Label column.")] = None,
+    y: Annotated[
+        list[str] | None, typer.Option("--y", help="Numeric column; repeat for series.")
+    ] = None,
+    colors: Annotated[
+        str | None, typer.Option("--colors", help="Comma-separated colors; automatic when omitted.")
+    ] = None,
+    width: Annotated[int, typer.Option("--width", help="Graph bar width.")] = 40,
+    no_color: Annotated[bool, typer.Option("--no-color")] = False,
 ):
     """Execute raw SQL."""
     _validate_output(json_output, csv_output, no_header)
+    spec = _graph_options(graph, x, y, colors, width, no_color, json_output, csv_output)
     with _runner(ctx) as runner:
-        _execute(runner, sql, json_output, csv_output, no_header)
+        _execute(runner, sql, json_output, csv_output, no_header, spec, no_color)
+
+
+def _graph_options(graph, x, y, colors, width, no_color, json_output, csv_output):
+    if graph and (json_output or csv_output is not None):
+        raise typer.BadParameter("--graph cannot be combined with --json or --csv")
+    try:
+        return graph_options(graph, x, y, colors, width, no_color)
+    except GraphError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def _validate_output(json_output: bool, csv_output: str | None, no_header: bool) -> None:
@@ -91,9 +147,17 @@ def _validate_output(json_output: bool, csv_output: str | None, no_header: bool)
 
 
 def _execute(
-    runner: Runner, sql: str, json_output: bool, csv_output: str | None, no_header: bool
+    runner: Runner,
+    sql: str,
+    json_output: bool,
+    csv_output: str | None,
+    no_header: bool,
+    graph: GraphSpec | None = None,
+    no_color: bool = False,
 ) -> None:
-    if csv_output is None:
+    if graph is not None:
+        draw_graph(runner.execute(sql), graph, color=False if no_color else None)
+    elif csv_output is None:
         print_result(runner.execute(sql), json_output=json_output)
     else:
         count = runner.export_csv(
@@ -105,7 +169,9 @@ def _execute(
             typer.echo(f"Exported {count} rows to {csv_output}", err=True)
 
 
-@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+@app.command(
+    cls=QueryCommand, context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
 def run(
     ctx: typer.Context,
     macro: str,
@@ -114,12 +180,36 @@ def run(
         str | None, typer.Option("--csv", help="Export all rows to FILE; - for stdout.")
     ] = None,
     no_header: Annotated[bool, typer.Option("--no-header", help="Omit the CSV header.")] = False,
+    graph: Annotated[
+        str | None,
+        typer.Option(
+            "--graph", metavar="[auto|bar|stacked]", help="Draw a graph; omitted value means auto."
+        ),
+    ] = None,
+    x: Annotated[str | None, typer.Option("--x", help="Label column.")] = None,
+    y: Annotated[
+        list[str] | None, typer.Option("--y", help="Numeric column; repeat for series.")
+    ] = None,
+    colors: Annotated[
+        str | None, typer.Option("--colors", help="Comma-separated colors; automatic when omitted.")
+    ] = None,
+    width: Annotated[int, typer.Option("--width", help="Graph bar width.")] = 40,
+    no_color: Annotated[bool, typer.Option("--no-color")] = False,
 ):
     """Run a macro with --parameter value or --parameter=value arguments."""
     _validate_output(json_output, csv_output, no_header)
+    spec = _graph_options(graph, x, y, colors, width, no_color, json_output, csv_output)
     parameters = _parameters(ctx.args)
     with _runner(ctx) as runner:
-        _execute(runner, runner.render(macro, **parameters), json_output, csv_output, no_header)
+        _execute(
+            runner,
+            runner.render(macro, **parameters),
+            json_output,
+            csv_output,
+            no_header,
+            spec,
+            no_color,
+        )
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
