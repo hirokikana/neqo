@@ -4,6 +4,7 @@ import json
 from unittest.mock import Mock
 
 import pytest
+from rich.text import Text
 from typer.testing import CliRunner
 
 from neqo import Runner
@@ -60,7 +61,7 @@ def test_csv_header_and_lf(project, destination, include_header, command):
 def test_no_header_requires_csv(project, command):
     result = CliRunner().invoke(app, [*command, "--no-header"])
     assert result.exit_code == 2
-    assert "--no-header requires --csv" in result.output
+    assert "--no-header requires --csv" in Text.from_ansi(result.output).plain
     assert not (project / "demo.duckdb").exists()
 
 
