@@ -104,6 +104,70 @@ the YAML file's directory. An explicit `database=` resolves from the process
 working directory. Use `--config PATH` / `Runner(config=PATH)` for deterministic
 configuration discovery. No parent-directory search takes place.
 
+### Shared and personal configuration
+
+Use `imports` to combine a shared configuration with private additions. Imported
+settings take precedence over the importing file. For example, commit a shared
+`team.yaml`:
+
+```yaml
+default_engine: analytics
+engines:
+  analytics:
+    type: athena
+    database: analytics
+    region: ap-northeast-1
+macros:
+  path: ./macros
+imports:
+  - path: ./neqo.local.yaml
+    optional: true
+```
+
+Keep `neqo.local.yaml` outside Git:
+
+```yaml
+default_engine: personal
+engines:
+  analytics:
+    aws_profile: my-sso-profile
+  personal:
+    type: duckdb
+    database: ./personal.duckdb
+macros:
+  path: ./private-macros
+```
+
+```bash
+neqo --config team.yaml --profile analytics query 'SELECT 42'
+neqo --config team.yaml run my_private_macro
+```
+
+Both CLI and `Runner(config="team.yaml")` see the merged profiles and macros.
+Merge rules:
+
+- Apply the current file first, then imports in list order. Later imports win.
+  Nested imports follow the same rule, depth first.
+- `default_engine` is replaced only when explicitly supplied.
+- Profiles are merged by name and option; an override can omit `type`. Changing
+  `type` replaces the whole profile to avoid carrying incompatible engine options.
+- Macros from each declared directory are combined. An explicit macro definition
+  wins over discovery in the same file. A later same-name macro replaces the whole
+  definition, including parameters, rather than mixing templates and parameters.
+- Relative import paths, macro directories/files and DuckDB database paths are
+  resolved against the file declaring them, not the working directory. `~` works.
+  Imported files with no `macros` section do not rediscover macros.
+- `imports: [./one.yaml, ./two.yaml]` makes both files required. Use
+  `{path: ./neqo.local.yaml, optional: true}` to skip an absent private file.
+  Invalid files, circular imports and excessive nesting still fail explicitly.
+- CLI connection selections continue to override the merged defaults. Imports
+  are local files only; no URL loading or environment-variable interpolation.
+
+NEQO does not write or modify imported files. This repository already ignores
+`neqo.local.yaml`; add that name and your private macro directory to your own
+repository's `.gitignore` (or `.git/info/exclude`). Do not put AWS access keys or
+passwords in either file; use `aws_profile` and the standard credential chain.
+
 ### Athena authentication
 
 NEQO connection profiles and AWS credential profiles are separate:
